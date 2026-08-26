@@ -7,3 +7,18 @@ theme = "PaperMod"
 defaultTheme = "auto"
 ShowReadingTime = true
 ShowToc = true
+ShowBreadCrumbs = true
+ShowPostNavLinks = true
+ShowCodeCopyButtons = true
+
+[menu]
+
+  [[menu.main]]
+  name = "Beiträge"
+  url = "/posts/"
+  weight = 10
+
+  [[menu.main]]
+  name = "Tags"
+  url = "/tags/"
+  weight = 20
