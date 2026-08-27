@@ -1,0 +1,84 @@
+:root {
+    --main-width: 700px;
+    --nav-width: 900px;
+    --theme: #faf9f6;
+    --entry: #fdfcf9;
+    --border: #e3e0da;
+    --accent: #365f69;
+}
+
+:root[data-theme="dark"] {
+    --theme: #1d1e20;
+    --entry: #242628;
+    --border: #3d4144;
+    --accent: #9bc4cb;
+}
+
+body.list {
+    background: var(--theme);
+}
+
+.main {
+    padding-top: 40px;
+}
+
+.post-content {
+    font-size: 18px;
+    line-height: 1.7;
+}
+
+.home-intro {
+    margin: 32px 0 56px;
+}
+
+.home-intro h1 {
+    margin-bottom: 24px;
+    font-size: clamp(32px, 5vw, 42px);
+    line-height: 1.2;
+    letter-spacing: -0.025em;
+}
+
+.home-intro .post-content {
+    margin-bottom: 0;
+}
+
+.post-content a:not(.anchor) {
+    color: var(--accent);
+    box-shadow: none;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+}
+
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 4px;
+}
+
+.entry-content {
+    font-size: 16px;
+}
+
+@media (max-width: 600px) {
+    .main {
+        padding-top: 24px;
+    }
+
+    .home-intro {
+        margin-top: 16px;
+        margin-bottom: 40px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .post-entry {
+        transition: none;
+    }
+
+    .post-entry:hover,
+    .post-entry:focus-within {
+        transform: none;
+    }
+}

@@ -1,8 +1,12 @@
 #+title: Über mich
 #+draft: false
 
-* Über mich
+Ich bin Michael Hailer. Auf dieser Website sammle ich Beiträge und Notizen zu Themen, die mich interessieren.
 
-Diese Seite entsteht vollständig mit Emacs, Org Mode und Hugo.
+Meine Texte findest du unter [[/posts/][Beiträge]].
 
-Die Inhalte werden in Org geschrieben, mit Hugo gerendert und über GitHub Pages veröffentlicht.
+* Über diese Website
+
+Ich schreibe die Inhalte in Emacs als native Org-Dateien. Hugo erstellt daraus diese Website mit dem Theme PaperMod.
+
+Veröffentlicht wird sie über GitHub Pages.

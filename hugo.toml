@@ -5,12 +5,33 @@ title = "Michael Hailer"
 theme = "PaperMod"
 
 [params]
+description = "Die persönliche Website von Michael Hailer: Beiträge und Notizen."
+author = "Michael Hailer"
+hideAuthor = true
+mainSections = ["posts"]
 defaultTheme = "auto"
-ShowReadingTime = true
-ShowToc = true
-ShowBreadCrumbs = true
-ShowPostNavLinks = true
+disableThemeToggle = false
+disableSpecial1stPost = true
+ShowReadingTime = false
+ShowToc = false
+ShowBreadCrumbs = false
+ShowPostNavLinks = false
 ShowCodeCopyButtons = true
+ShowShareButtons = false
+
+[[cascade]]
+  [cascade.target]
+  path = "/posts/**"
+  kind = "page"
+  [cascade.params]
+  ShowReadingTime = true
+  ShowPostNavLinks = true
+
+[[cascade]]
+  [cascade.target]
+  path = "/about"
+  [cascade.params]
+  hideMeta = true
 
 [menu]
 
@@ -20,11 +41,6 @@ ShowCodeCopyButtons = true
   weight = 10
 
   [[menu.main]]
-  name = "Tags"
-  url = "/tags/"
+  name = "Über mich"
+  url = "/about/"
   weight = 20
-
-[[menu.main]]
-name = "Über mich"
-url = "/about/"
-weight = 30
