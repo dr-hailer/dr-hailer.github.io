@@ -1,0 +1,6 @@
+#+title: Willkommen
+#+draft: false
+
+Willkommen auf meiner persönlichen Website.
+
+Hier veröffentliche ich Beiträge und Notizen zu Themen, die mich interessieren.

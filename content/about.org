@@ -1,0 +1,8 @@
+#+title: Über mich
+#+draft: false
+
+* Über mich
+
+Diese Seite entsteht vollständig mit Emacs, Org Mode und Hugo.
+
+Die Inhalte werden in Org geschrieben, mit Hugo gerendert und über GitHub Pages veröffentlicht.

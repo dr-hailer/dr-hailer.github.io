@@ -1,5 +1,6 @@
 baseURL = "https://dr-hailer.github.io/"
 locale = "de-DE"
+defaultContentLanguage = "de"
 title = "Michael Hailer"
 theme = "PaperMod"
 
@@ -22,3 +23,8 @@ ShowCodeCopyButtons = true
   name = "Tags"
   url = "/tags/"
   weight = 20
+
+[[menu.main]]
+name = "Über mich"
+url = "/about/"
+weight = 30
