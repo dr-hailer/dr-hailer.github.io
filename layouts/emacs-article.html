@@ -1,0 +1,18 @@
+{{ define "main" }}
+<article class="post-single emacs-article">
+  <header class="post-header">
+    <p class="series-label"><a href="{{ "emacs/konfiguration/" | relURL }}">Emacs · Meine Emacs-Konfiguration</a></p>
+    <h1 class="post-title">{{ .Title }}</h1>
+    {{ with .Description }}<div class="post-description">{{ . }}</div>{{ end }}
+    <div class="post-meta">{{ partial "post_meta.html" . }}</div>
+  </header>
+  {{ with .TableOfContents }}
+  <details class="toc">
+    <summary><span class="title">Inhalt</span></summary>
+    <div class="inner">{{ . }}</div>
+  </details>
+  {{ end }}
+  <div class="post-content md-content">{{ .Content }}</div>
+  {{ partial "extend_post_content.html" . }}
+</article>
+{{ end }}

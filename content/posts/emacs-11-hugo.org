@@ -1,0 +1,85 @@
+#+title: 11 · Diese Website aus Emacs bearbeiten und ansehen
+#+date: 2026-08-27
+#+series_order: 11
+#+draft: false
+#+project: emacs-konfiguration
+#+layout: emacs-article
+#+description: Native Org-Beiträge, ein verwalteter Hugo-Prozess und eine lokale Vorschau ohne ox-hugo.
+
+Diese Website entsteht aus nativen Org-Dateien. Emacs bearbeitet die Quellen, Hugo rendert sie und GitHub Pages veröffentlicht den Build. Meine Konfiguration ergänzt dafür Easy Hugo und eigene Funktionen für Start, Stopp und Vorschau. Es gibt keinen Markdown-Zwischenschritt und keine Umwandlung über =ox-hugo=.
+
+Die Serie liegt weiterhin unter =content/posts/=. Dadurch passt sie zu den vorhandenen Emacs-Helfern, die Beiträge in diesem Verzeichnis erwarten. Die Rubrik „Emacs“ und ihre Projektübersicht bündeln dieselben Beiträge über Website-Metadaten; es entstehen keine doppelten Artikeldateien.
+
+* Den Hugo-Prozess verwalten
+
+Voraussetzung ist ein lokal erreichbares Hugo Extended und das vorhandene Website-Repository. Der folgende Code ist eine angepasste Nachbauvariante. Gegenüber meinem Original prüft er zusätzlich den Programmpfad und bindet die Vorschau ausdrücklich an die lokale Loopback-Adresse.
+
+#+begin_src emacs-lisp
+(defvar michi/hugo-directory (expand-file-name "~/Website/")
+  "Arbeitsverzeichnis der Hugo-Website.")
+
+(defun michi/hugo-server ()
+  "Starte eine lokale Vorschau einschließlich Entwürfen."
+  (interactive)
+  (unless (executable-find "hugo")
+    (user-error "Hugo ist für Emacs nicht erreichbar"))
+  (unless (file-directory-p michi/hugo-directory)
+    (user-error "Website-Verzeichnis existiert nicht"))
+  (if (process-live-p (get-process "hugo-server"))
+      (message "Hugo läuft bereits")
+    (let ((default-directory michi/hugo-directory))
+      (start-process "hugo-server" "*Hugo Server*"
+                     "hugo" "server" "-D" "--bind" "127.0.0.1"))))
+
+(defun michi/hugo-stop ()
+  "Stoppe den von dieser Einrichtung gestarteten Hugo-Prozess."
+  (interactive)
+  (if-let* ((process (get-process "hugo-server")))
+      (delete-process process)
+    (message "Kein verwalteter Hugo-Prozess läuft")))
+#+end_src
+
+=default-directory= bestimmt das Arbeitsverzeichnis des gestarteten Prozesses. =start-process= blockiert Emacs nicht bis zum Ende des Servers; seine Ausgabe landet in =*Hugo Server*=. =-D= nimmt Entwürfe in die lokale Vorschau auf. Das bedeutet nicht, dass sie auch beim normalen Produktionsbuild erscheinen.
+
+Die Prozessprüfung erfasst nur den hier benannten Emacs-Prozess. Ein in einem Terminal gestarteter Hugo-Server kann denselben Port bereits belegen. In diesem Fall ist die Ausgabe im Serverbuffer entscheidend. Einfach einen zweiten Prozess zu starten löst den Konflikt nicht.
+
+* Vorschau ohne besondere Emacs-Buildoptionen
+
+Meine Originalkonfiguration verwendet =xwidget-webkit= und ein Layout mit Org-Quelle links und Vorschau rechts. Dafür muss Emacs mit entsprechender Unterstützung gebaut sein. Der portable Einstieg verwendet stattdessen den normalen Browser:
+
+#+begin_src emacs-lisp
+(defun michi/hugo-preview ()
+  "Öffne die bereits gestartete lokale Hugo-Vorschau."
+  (interactive)
+  (browse-url "http://127.0.0.1:1313/"))
+
+(define-prefix-command 'michi/hugo-map)
+(global-set-key (kbd "C-c k") #'michi/hugo-map)
+(define-key michi/hugo-map (kbd "s") #'michi/hugo-server)
+(define-key michi/hugo-map (kbd "p") #'michi/hugo-preview)
+(define-key michi/hugo-map (kbd "k") #'michi/hugo-stop)
+#+end_src
+
+Starte zuerst =C-c k s= und warte auf die Bereitschaftsmeldung im Serverbuffer. Öffne danach =C-c k p=. So benötigt der Nachbau keine feste Wartezeit, die auf einem langsameren Rechner zu kurz ausfallen könnte. =C-c k k= beendet nur den von Emacs verwalteten Prozess.
+
+* Einen Org-Beitrag anlegen
+
+Eine neue Datei unter =content/posts/= beginnt beispielsweise so:
+
+#+begin_example
+#+title: Meine nächste Emacs-Funktion
+#+date: 2026-08-27
+#+draft: true
+
+* Ausgangspunkt
+
+Hier beginnt die Erklärung.
+#+end_example
+
+Im Terminal kann dafür auch =hugo new content posts/meine-naechste-funktion.org= verwendet werden; das Repository enthält bereits ein Org-Archetype. Speichere den Text und prüfe die lokale Vorschau. Der Artikel bleibt mit =draft: true= ein Entwurf. Vor einer Veröffentlichung sollten Titel, Links, Snippets und mögliche private Angaben geprüft werden.
+
+* Grenzen der vorhandenen Helfer
+
+Meine Funktion =michi/hugo-current-post-url= leitet die URL aus dem Dateinamen ab und erwartet flache Dateien unter =content/posts/=. Sie berücksichtigt keine individuellen Slugs oder geänderten Permalinkregeln. Deshalb verwendet diese Serie genau diese einfache Ablage. Bei einer späteren Umstrukturierung müsste auch die Funktion angepasst werden.
+
+Easy Hugo ist ein zusätzlicher Einstieg für die Beitragsverwaltung, aber keine Voraussetzung für den hier gezeigten Prozess. Native Org-Unterstützung und Veröffentlichungsregeln sind in der [[https://gohugo.io/content-management/formats/][Hugo-Dokumentation zu Inhaltsformaten]] beschrieben. Wichtig bleibt die Trennung: Vorschau starten, Inhalte prüfen und per Git veröffentlichen sind drei eigene Schritte.

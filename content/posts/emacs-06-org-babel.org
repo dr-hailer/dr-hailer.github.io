@@ -1,0 +1,72 @@
+#+title: 06 · Org-Babel: Text, Code und Ergebnisse zusammenhalten
+#+date: 2026-08-27
+#+series_order: 06
+#+draft: false
+#+project: emacs-konfiguration
+#+layout: emacs-article
+#+description: Python-Blöcke in Org ausführen, Header verstehen und Ausführung von Veröffentlichung trennen.
+
+Org-Babel verbindet einen erklärenden Text mit ausführbaren Quellblöcken und deren Ergebnissen. In meiner Konfiguration sind Python, Julia, Maxima, Shell, LaTeX, Gnuplot und Jupyter freigeschaltet. Für einen nachvollziehbaren Einstieg beschränken wir uns auf Python und Emacs Lisp. Weitere Sprachen benötigen ihre eigenen Interpreter und teilweise zusätzliche Babel-Pakete.
+
+Voraussetzungen sind Org aus Teil 2 und ein erreichbares =python3=. Babel mit =python= ist zunächst unabhängig von der IPython-Shell aus Teil 4 und von einem Jupyter-Kernel. Diese Trennung erleichtert die Fehlersuche.
+
+* Sprachen gezielt einschalten
+
+#+begin_src emacs-lisp
+(require 'org)
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ '((emacs-lisp . t)
+   (python . t)))
+
+(setq org-babel-python-command "python3"
+      org-confirm-babel-evaluate t
+      org-src-fontify-natively t
+      org-src-tab-acts-natively t
+      org-src-preserve-indentation t
+      org-src-content-indentation 0
+      org-src-window-setup 'current-window)
+#+end_src
+
+Meine aktive Konfiguration setzt =org-confirm-babel-evaluate= auf =nil=. Das übernehmen wir hier bewusst nicht: Ein fremdes Org-Dokument kann Code enthalten, der Dateien verändert oder Daten überträgt. Mit =t= bleibt eine Rückfrage aktiv. Sie ersetzt nicht das Lesen des Codes und ist keine Sandbox. Die Sicherheitswirkung erläutert das [[https://orgmode.org/manual/Code-Evaluation-Security.html][Org-Handbuch zur Codeausführung]].
+
+=org-src-fontify-natively= färbt Quellblöcke passend zur Sprache. =C-c '= öffnet den Block zum Bearbeiten im zugehörigen Modus; derselbe Befehl beendet die Bearbeitung. Die Einrückungsoptionen halten den Code möglichst nah an seiner tatsächlichen Form.
+
+* Ein vollständiger erster Versuch
+
+Lege eine neue Testdatei mit diesem Inhalt an:
+
+#+begin_example
+#+begin_src python :results output :exports both
+werte = [2, 4, 6]
+print(sum(werte) / len(werte))
+#+end_src
+#+end_example
+
+Setze den Cursor in den Block und drücke =C-c C-c=. Nach der Bestätigung sollte unter =#+RESULTS:= die Ausgabe =4.0= erscheinen. =:results output= übernimmt die Standardausgabe, hier also =print=. Ohne =print= ist diese Variante für einen bloßen Ausdruck nicht passend; dafür müsste man die Ergebnisart bewusst ändern.
+
+=:exports both= steuert den Org-Export von Code und Ergebnissen. Es bedeutet nicht, dass Hugo den Block ausführt. Auf dieser Website rendert Hugo native Org-Dateien; es startet weder Emacs noch Python. Ergebnisse müssen zuvor in Org erzeugt und gespeichert werden. Auch Tangling und =ox-hugo= sind für diese Website nicht erforderlich.
+
+* Wiederholbare Ergebnisse statt verstecktem Zustand
+
+Ohne explizite Session ist ein Python-Babel-Block ein guter Ausgangspunkt für einen isolierten Test. Mit einer benannten Session können mehrere Blöcke Variablen teilen. Das ist bequem, führt aber schnell zu Resultaten, die nur bei einer bestimmten Ausführungsreihenfolge funktionieren. Der nächste Artikel erklärt diese Frage anhand von Jupyter genauer.
+
+Meine Konfiguration setzt das Standardergebnis global auf =output=. Für Lernbeispiele stehen die Header hier direkt am Block, damit die Datei ihre Absicht selbst dokumentiert. Ändere nicht pauschal globale Header, wenn vorhandene Dokumente andere Ergebnisarten erwarten.
+
+* Eigene Komfortbefehle
+
+#+begin_src emacs-lisp
+(defun michi/org-babel-run-block ()
+  "Führe den Quellblock am Cursor aus."
+  (interactive)
+  (org-babel-execute-src-block))
+
+(defun michi/org-babel-run-all ()
+  "Führe die ausführbaren Quellblöcke des aktuellen Org-Buffers aus."
+  (interactive)
+  (org-babel-execute-buffer))
+#+end_src
+
+Diese Funktionen aus meiner Konfiguration geben vorhandenen Org-Befehlen eigene Namen für Menüs und Tastengruppen. Sie machen die Ausführung nicht sicherer. „Alle ausführen“ sollte nur auf einem geprüften Dokument aufgerufen werden; die Blöcke können Nebenwirkungen haben.
+
+Wenn Python nicht startet, prüfe =(executable-find "python3")=. Wenn ein Babel-Backend fehlt, prüfe =org-babel-load-languages=. Wenn ein Ergebnis fehlt, prüfe zuerst =:results= und die tatsächliche Ausgabe. Diese drei Fehler gehören zu unterschiedlichen Schichten und sollten einzeln untersucht werden.

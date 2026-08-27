@@ -1,0 +1,83 @@
+#+title: 09 · Vervollständigung mit Vertico, Consult und Embark
+#+date: 2026-08-27
+#+series_order: 09
+#+draft: false
+#+project: emacs-konfiguration
+#+layout: emacs-article
+#+description: Kandidaten anzeigen, flexibel filtern, im Kontext suchen und passende Aktionen ausführen.
+
+Meine Minibuffer-Einrichtung besteht aus mehreren kleinen Paketen. Vertico zeigt Kandidaten untereinander, Orderless verändert die Suche darin, Marginalia ergänzt Hinweise, Consult bietet Suchbefehle und Embark Aktionen für den ausgewählten Kandidaten. Sie ersetzen nicht alle denselben Teil von Emacs.
+
+Voraussetzung ist die Paketverwaltung aus Teil 1. Die folgenden Blöcke sind eine reduzierte Auswahl aus meiner Konfiguration. Die ursprünglichen zusätzlichen Präfixmenüs werden nicht vorausgesetzt; die Beispiele lassen sich mit den hier angegebenen Tasten direkt ausprobieren.
+
+* Anzeige und Suchlogik
+
+#+begin_src emacs-lisp
+(use-package savehist
+  :ensure nil
+  :init (savehist-mode 1))
+
+(use-package vertico
+  :ensure t
+  :init (vertico-mode 1)
+  :bind (:map vertico-map
+              ("C-j" . vertico-next)
+              ("C-k" . vertico-previous)))
+
+(use-package marginalia
+  :ensure t
+  :init (marginalia-mode 1))
+
+(use-package orderless
+  :ensure t
+  :init
+  (setq completion-styles '(orderless basic)
+        completion-category-defaults nil
+        completion-category-overrides
+        '((file (styles partial-completion)))))
+#+end_src
+
+Der zusätzliche Override für Dateien ist eine Nachbauergänzung, damit Dateipfade ihre besondere Vervollständigung behalten. Die Originalkonfiguration setzt an dieser Stelle nur die allgemeinen Stile. Orderless erlaubt das Filtern über mehrere Eingabeteile; Vertico ist dagegen für die Darstellung und Auswahl zuständig.
+
+=savehist-mode= merkt sich Eingaben über Sitzungen hinweg. Das erhöht den Komfort, kann aber auch sensible Suchbegriffe lokal speichern. Meine vollständige Konfiguration erweitert die gespeicherten Daten um weitere Verläufe; das übernehmen wir für dieses kleine Beispiel nicht.
+
+* Suchen mit direkter Vorschau
+
+#+begin_src emacs-lisp
+(use-package consult
+  :ensure t
+  :bind (("C-x b" . consult-buffer)
+         ("C-c s" . consult-line)
+         ("M-y" . consult-yank-pop)))
+#+end_src
+
+=consult-buffer= bündelt verschiedene Buffer- und Dateikandidaten. =consult-line= durchsucht den aktuellen Buffer und zeigt den Treffer im Kontext. =consult-yank-pop= macht den Kill-Ring gezielt durchsuchbar. Das unterscheidet die Quellen: Eine Textsuche im aktuellen Buffer ist noch keine Suche über ein ganzes Projekt.
+
+Meine umfangreichere Einrichtung bindet =consult-ripgrep= an das Writing Studio. Dieser Befehl benötigt zusätzlich das externe Programm =rg=. Die drei Befehle im Beispiel sind zunächst ohne diese Projekttextsuche nutzbar.
+
+* Aktionen am Kandidaten
+
+#+begin_src emacs-lisp
+(use-package embark
+  :ensure t
+  :bind (("C-." . embark-act)
+         ("C-h B" . embark-bindings)))
+
+(use-package embark-consult
+  :ensure t
+  :after (embark consult))
+#+end_src
+
+Mit =C-.= lässt sich eine Aktion zum ausgewählten Objekt aufrufen. Die Aktionen hängen vom Kandidatentyp ab: Ein Dateiname bietet andere Möglichkeiten als ein Symbol oder Buffer. Deshalb sollte man das eingeblendete Menü lesen, statt dieselbe Taste überall mit derselben Wirkung zu erwarten. Manche Aktionen verändern Dateien oder Buffer.
+
+* Eine kurze Übung
+
+Öffne zwei Dateien und starte =C-x b=. Filtere den gewünschten Namen mit zwei Fragmenten. Brich mit =C-g= ab und probiere danach =C-c s= in einer längeren Datei. Die Treffer sollten während der Auswahl im Kontext erscheinen. Rufe schließlich bei einem Kandidaten =C-.= auf und beende das Aktionsmenü, ohne eine verändernde Aktion auszuführen.
+
+Falls die Kandidaten angezeigt werden, aber die Filterung anders ausfällt, prüfe =completion-styles= und die Kategorie-Overrides. Falls =C-c s= einen anderen Befehl startet, hilft =C-h k C-c s=: Lokale Major-Mode-Belegungen können globale Tasten überlagern.
+
+* Minibuffer und Codevervollständigung trennen
+
+Meine Python-Konfiguration verwendet zusätzlich Corfu für Vervollständigung im Quelltext. Das ist eine andere Oberfläche als Vertico. Eglot, Cape oder Yasnippet liefern dort Kandidaten über Completion-at-point-Funktionen. Man muss also nicht Vertico umkonfigurieren, wenn Python-Importvorschläge fehlen, sondern die Quelle der Codekandidaten prüfen.
+
+Paketreferenzen: [[https://github.com/minad/vertico][Vertico]], [[https://github.com/minad/consult][Consult]] und [[https://github.com/oantolin/embark][Embark]]. Die Beispiele dokumentieren meine Auswahl; alternative Kombinationen können genauso sinnvoll sein.

@@ -1,0 +1,7 @@
+#+title: Emacs
+#+description: Meine Emacs-Konfiguration: Org, Python, Babel, Gnus und eigene Elisp-Funktionen.
+#+draft: false
+
+Emacs ist der gemeinsame Rahmen für meine Notizen, meine Programmierumgebung und E-Mail. Hier dokumentiere ich die Bausteine meiner Konfiguration und zeige, wie sie zusammenspielen.
+
+Das erste Projekt ist [[/emacs/konfiguration/][Meine Emacs-Konfiguration]]: eine Artikelserie mit erklärten Elisp-Beispielen, Voraussetzungen und kleinen Übungen zum Nachbauen.

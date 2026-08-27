@@ -1,0 +1,79 @@
+#+title: 02 · Org: Aufgaben, Agenda und Capture
+#+date: 2026-08-27
+#+series_order: 02
+#+draft: false
+#+project: emacs-konfiguration
+#+layout: emacs-article
+#+description: Eine gemeinsame Inbox, klare Aufgabenstatus und eine Agenda aus nativen Org-Dateien.
+
+Meine Org-Konfiguration verbindet schnelle Erfassung mit einer Agenda und einem nachvollziehbaren Aufgabenstatus. Der Einstieg ist eine Inbox: Neue Aufgaben müssen noch nicht am richtigen Projektort liegen, um erfasst zu werden. Erst später verschiebe ich sie mit Refile.
+
+Voraussetzung ist das Grundgerüst aus Teil 1. Org gehört zu Emacs. Mein Org-Verzeichnis liegt in einem synchronisierten Ordner; für den Nachbau verwenden wir das neutrale =~/org/= und legen keine privaten Kategorien oder Dateipfade offen.
+
+* Dateien und Aufgabenstatus
+
+#+begin_src emacs-lisp
+(require 'org)
+(setq org-directory (expand-file-name "~/org/"))
+(make-directory org-directory t)
+
+(use-package org
+  :ensure nil
+  :bind (("C-c a" . org-agenda)
+         ("C-c c" . org-capture)
+         ("C-c l" . org-store-link))
+  :config
+  (setq org-default-notes-file
+        (expand-file-name "inbox.org" org-directory)
+        org-agenda-files (list org-default-notes-file)
+        org-log-done 'time
+        org-log-into-drawer "LOGBOOK"
+        org-todo-keywords
+        '((sequence "TODO(t)" "WAIT(w@/!)" "NEXT(n)"
+                    "|" "DONE(d!)" "KILL(k@)"))
+        org-agenda-span 10
+        org-agenda-start-on-weekday nil))
+#+end_src
+
+Links vom senkrechten Strich stehen offene Zustände, rechts abgeschlossene. =TODO= ist noch offen, =NEXT= markiert den nächsten Schritt und =WAIT= eine Warteposition. =DONE= beendet die Aufgabe, =KILL= verwirft sie. Die Buchstaben in Klammern sind Schnellauswahltasten. =!= verlangt einen Zeitstempel, =@= eine Notiz; die Markierung hinter dem Schrägstrich gilt beim Verlassen des Zustands.
+
+Meine vollständige Konfiguration sammelt die Org-Dateien direkt im Org-Verzeichnis und schließt das Archiv sowie eine Hilfsdatei aus. Das durchsucht keine Unterordner. Die explizite Inbox-Liste ist für den Einstieg leichter zu kontrollieren; weitere Projektdateien müssen später ergänzt werden.
+
+* Capture statt Dateien suchen
+
+#+begin_src emacs-lisp
+(setq org-capture-templates
+      `(("t" "Aufgabe" entry
+         (file+headline ,org-default-notes-file "Tasks")
+         "* TODO %?\n  %U\n  %a")
+        ("n" "Notiz" entry
+         (file+headline ,org-default-notes-file "Notes")
+         "* %?\n  %U\n  %a")))
+#+end_src
+
+Das Backquote erlaubt, den bereits berechneten Dateinamen mit Komma einzusetzen. =file+headline= legt den Eintrag unter einer bestimmten Überschrift ab. =%?= setzt den Cursor, =%U= fügt einen inaktiven Zeitstempel ein und =%a= übernimmt eine Kontextannotation, wenn eine verfügbar ist. So bleibt häufig erkennbar, aus welcher Datei oder Nachricht die Aufgabe entstanden ist.
+
+Öffne vorher =inbox.org=, speichere eine leere Datei und rufe =C-c c t= auf. Trage „Artikelentwurf prüfen“ ein und schließe Capture mit =C-c C-c= ab. =C-c C-k= verwirft die Erfassung. Das ist ein guter erster Test, weil er keine zusätzlichen Org-Pakete voraussetzt.
+
+* Termin und Status sind verschiedene Dinge
+
+Eine TODO-Aufgabe erscheint in der globalen Aufgabenliste über =C-c a t=. Für einen Platz im zeitlichen Agenda-Ausschnitt benötigt sie beispielsweise einen =SCHEDULED=- oder =DEADLINE=-Eintrag. Setze mit =C-c C-s= einen geplanten Termin und öffne =C-c a a=. Ein fehlender Termin ist daher nicht automatisch ein Fehler der Agenda.
+
+Für spätere Ablage übernimmt der Nachbau diese Einstellungen aus meiner Konfiguration:
+
+#+begin_src emacs-lisp
+(setq org-refile-targets '((org-agenda-files :maxlevel . 3))
+      org-refile-use-outline-path 'file
+      org-outline-path-complete-in-steps nil
+      org-refile-allow-creating-parent-nodes 'confirm
+      org-enforce-todo-dependencies t
+      org-enforce-todo-checkbox-dependencies t)
+#+end_src
+
+=C-c C-w= verschiebt eine Überschrift an ein Refile-Ziel. Die Pfadangabe einschließlich Datei hilft, gleich benannte Überschriften zu unterscheiden. Abhängigkeiten verhindern bestimmte Abschlüsse, solange untergeordnete Aufgaben oder Checkboxen offen sind; sie planen aber nicht automatisch die nächsten Schritte.
+
+* Häufige Stolperstellen
+
+Prüfe bei fehlenden Aufgaben zuerst =C-h v org-agenda-files=, dann den TODO-Status und zuletzt den Termin. Eine neu erzeugte Datei landet nicht automatisch in einer bereits berechneten Dateiliste. Bei synchronisierten Verzeichnissen können gleichzeitige Änderungen Konflikte erzeugen; Org selbst ersetzt keine Konfliktauflösung.
+
+Vertiefende Referenz: [[https://orgmode.org/manual/Capture.html][Org Capture]]. Der nächste Artikel erklärt die besondere Journal-Zielfunktion, die in meiner Konfiguration zusätzlich zu Aufgaben und Notizen verwendet wird.

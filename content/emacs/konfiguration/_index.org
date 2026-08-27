@@ -1,0 +1,21 @@
+#+title: Meine Emacs-Konfiguration
+#+description: Vom Start bis zum eigenen Workflow: elf Artikel über meine Emacs-Konfiguration.
+#+summary: Elf aufeinander aufbauende Artikel: Start und Paketverwaltung, Org, Python, Babel, Jupyter, Gnus und weitere Werkzeuge – mit erklärten Elisp-Beispielen.
+#+layout: emacs-project
+#+draft: false
+
+Diese Serie beschreibt ausgewählte Bausteine meiner tatsächlichen Konfiguration, Stand 27. August 2026. Die Grundlage sind =early-init.el= und =init.el=; die lokale Emacs-Version ist 31.1. Die Artikel sind eine erläuterte Auswahl, keine vollständige Dokumentation aller gut 5.200 Konfigurationszeilen.
+
+Beginne mit dem Grundgerüst oder wähle ein Thema aus der Liste. Jeder Artikel nennt Voraussetzungen, erklärt Elisp-Beispiele und zeigt einen kleinen Funktionstest. Die Beispiele sind bereinigte Auszüge oder ausdrücklich bezeichnete Nachbauvarianten; persönliche Zugangsdaten und projektspezifische Pfade fehlen.
+
+Teste neue Einstellungen zunächst in einer separaten Instanz mit =emacs -Q=. Lade Beispieldateien mit =M-x load-file= und sichere deine bestehende Konfiguration. Die Blöcke gehören, sofern nicht anders angegeben, in der gezeigten Reihenfolge in die =init.el=.
+
+* Prüfstand und weitere Themen
+
+Alle 26 Elisp-Blöcke wurden syntaktisch geprüft; sechs gezielte Tests decken Journal, Python-Zellgrenzen, IPython-Fehlermeldung, Ruff und einen Babel-Python-Block ab. Eine vollständige Installation aller Pakete, eine Jupyter-Sitzung und Mailzugriffe wurden nicht getestet.
+
+Weitere mögliche Beiträge betreffen Org-QL, Citar, AUCTeX, TRAMP, Dape, Elfeed und das Writing Studio.
+
+* Lesereihenfolge
+
+Unter jedem Artikel führen Links zum vorherigen und nächsten Teil sowie zurück zu dieser Übersicht.

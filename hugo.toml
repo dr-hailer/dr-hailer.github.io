@@ -41,6 +41,11 @@ ShowShareButtons = false
   weight = 10
 
   [[menu.main]]
+  name = "Emacs"
+  url = "/emacs/"
+  weight = 15
+
+  [[menu.main]]
   name = "Über mich"
   url = "/about/"
   weight = 20

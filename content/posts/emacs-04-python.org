@@ -1,0 +1,91 @@
+#+title: 04 · Python mit IPython, Eglot und Projektumgebungen
+#+date: 2026-08-27
+#+series_order: 04
+#+draft: false
+#+project: emacs-konfiguration
+#+layout: emacs-article
+#+description: Interpreter, Sprachserver und REPL getrennt verstehen und passend zum Projekt verbinden.
+
+Meine Python-Einrichtung setzt auf IPython als interaktive Shell, Pyright als Sprachserver und Eglot als Emacs-Anbindung. Dazu kommen envrc für Projektumgebungen, eine Markierung bei Spalte 88 und ein eigenes Fensterlayout. Diese Bausteine erfüllen unterschiedliche Aufgaben: Eine funktionierende REPL beweist noch nicht, dass der Sprachserver die richtige Umgebung verwendet.
+
+Voraussetzungen sind Teil 1, Python mit IPython, =pyright-langserver= und für envrc das externe Programm =direnv=. Die Programme müssen im betreffenden Projekt für Emacs erreichbar sein. Die Nachbauvariante funktioniert auch mit dem klassischen =python-mode=; Tree-sitter ist für den Einstieg nicht erforderlich.
+
+* Zuerst die Umgebung, dann die Werkzeuge
+
+#+begin_src emacs-lisp
+(use-package envrc :ensure t)
+(require 'python)
+(require 'eglot)
+
+(add-to-list 'eglot-server-programs
+             '((python-mode python-ts-mode)
+               . ("pyright-langserver" "--stdio")))
+
+(defun michi/python-basics ()
+  "Setze lokale Python-Standards."
+  (setq-local indent-tabs-mode nil
+              tab-width 4
+              python-indent-offset 4
+              fill-column 88)
+  (display-fill-column-indicator-mode 1))
+
+(defun michi/python-setup ()
+  "Richte Umgebung und Python-Werkzeuge für den aktuellen Buffer ein."
+  (envrc-mode 1)
+  (michi/python-basics)
+  (when-let* ((ipython (executable-find "ipython")))
+    (setq-local python-shell-interpreter ipython
+                python-shell-interpreter-args "-i --simple-prompt"))
+  (setq-local eglot-workspace-configuration
+              '(:python (:analysis (:typeCheckingMode "basic"
+                                    :autoImportCompletions t))))
+  (when (executable-find "pyright-langserver")
+    (eglot-ensure)))
+
+(add-hook 'python-mode-hook #'michi/python-setup)
+(add-hook 'python-ts-mode-hook #'michi/python-setup)
+#+end_src
+
+=setq-local= begrenzt Einstellungen auf den Python-Buffer. Das ist für unterschiedliche Projekte wichtig. Die Priorität „Umgebung zuerst“ stammt aus meiner Konfiguration. Nach einer Änderung der =.envrc= sollte man die Umgebung neu laden und gegebenenfalls Eglot sowie die REPL neu starten. Bereits laufende Prozesse wechseln nicht automatisch ihren Interpreter.
+
+Eine =.envrc= ist ausführbarer Code. Prüfe sie, bevor du sie mit =direnv allow= freigibst. Die [[https://github.com/purcell/envrc][envrc-Dokumentation]] erklärt die bufferlokale Umgebung und die Zusammenarbeit mit anderen Paketen.
+
+* Eine bewusst gewählte IPython-REPL
+
+Meine Hilfsfunktion meldet einen Fehler, wenn IPython fehlt. Sie wechselt nicht still auf einen anderen Interpreter. Hier eine vereinfachte Variante mit demselben Verhalten:
+
+#+begin_src emacs-lisp
+(defun michi/python-ipython-interpreter ()
+  "Liefere IPython aus der aktiven Umgebung oder melde einen Fehler."
+  (or (executable-find "ipython")
+      (user-error "IPython fehlt in der aktiven Umgebung")))
+
+(defun michi/python-repl ()
+  "Starte IPython und zeige die zugehörige REPL."
+  (interactive)
+  (let ((python-shell-interpreter (michi/python-ipython-interpreter))
+        (python-shell-interpreter-args "-i --simple-prompt"))
+    (run-python (python-shell-calculate-command) nil nil)
+    (display-buffer
+     (process-buffer (python-shell-get-process-or-error)))))
+
+(add-to-list 'display-buffer-alist
+             '("\\*Python\\*\\(<[0-9]+>\\)?\\'"
+               (display-buffer-in-side-window)
+               (side . right)
+               (window-width . 87)))
+
+(define-prefix-command 'michi/python-map)
+(global-set-key (kbd "C-c p") #'michi/python-map)
+(define-key michi/python-map (kbd "r") #'michi/python-repl)
+#+end_src
+
+Das Original übernimmt zusätzlich die Textskalierung und ersetzt bestehende Layoutregeln mit demselben Matcher. Die Nachbauvariante zeigt nur das Prinzip. 87 Spalten für die REPL sind eine persönliche Desktop-Einstellung; auf schmalen Fenstern ist eine relative Breite oder ein Fenster unterhalb des Codes zweckmäßiger.
+
+* Prüfen, welche Schicht funktioniert
+
+Öffne eine Python-Datei und werte mit =M-:= den Ausdruck =(executable-find "ipython")= aus. Starte danach =C-c p r= und führe =import sys; print(sys.executable)= in der REPL aus. Der Pfad muss zur beabsichtigten Umgebung passen.
+
+Für Eglot prüfst du getrennt =(executable-find "pyright-langserver")= und =M-x eglot=. Vervollständigung und Diagnosen stammen vom Sprachserver; die Ergebnisse von Python-Ausdrücken stammen vom Interpreter. Eglot nutzt Emacs-Schnittstellen wie Flymake und ElDoc, wie das [[https://www.gnu.org/software/emacs/manual/html_mono/eglot.html][Eglot-Handbuch]] erläutert.
+
+In der Originalkonfiguration ergänzen Corfu, Cape und Yasnippet die Eingabe. Sie sind für diesen ersten Funktionstest nicht nötig. Ruff behandelt der nächste Artikel separat, weil ein Formatierer beim Speichern den Buffer verändert und deshalb einen klaren Fehlerpfad braucht.

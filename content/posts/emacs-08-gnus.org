@@ -1,0 +1,81 @@
+#+title: 08 · Gnus mit Proton Mail Bridge
+#+date: 2026-08-27
+#+series_order: 08
+#+draft: false
+#+project: emacs-konfiguration
+#+layout: emacs-article
+#+description: IMAP, SMTP, Authentifizierung und Nachrichtenansicht als getrennte Bausteine einer Gnus-Einrichtung.
+
+Meine E-Mail-Konfiguration verbindet Gnus über Proton Mail Bridge mit IMAP und SMTP. Gnus liest Nachrichten über IMAP; zum Versenden verwendet Message den SMTP-Client von Emacs. Die Bridge vermittelt lokal zwischen diesen Protokollen und dem Mailanbieter. Ein funktionierender Empfang bedeutet deshalb nicht automatisch, dass auch der Versand eingerichtet ist.
+
+Dieser Artikel enthält ausschließlich Platzhalter. Voraussetzung ist eine installierte, gestartete und für das eigene Konto eingerichtete Bridge. Übernimm Server, Ports, Benutzernamen und Verbindungsart aus ihrer aktuellen Kontokonfiguration. Die hier gezeigten Ports entsprechen meinem lokalen Setup, sind aber nicht für jedes System garantiert.
+
+* Empfang und Versand getrennt konfigurieren
+
+#+begin_src emacs-lisp
+(require 'gnus)
+(require 'smtpmail)
+(require 'auth-source)
+
+(setq user-full-name "Vorname Nachname"
+      user-mail-address "name@example.org"
+      auth-sources '("~/.authinfo.gpg"))
+
+(setq gnus-select-method
+      '(nnimap "proton"
+               (nnimap-address "127.0.0.1")
+               (nnimap-server-port 1143)
+               (nnimap-stream starttls)))
+
+(setq nnimap-authenticator 'login
+      nnimap-split-methods nil
+      message-send-mail-function #'smtpmail-send-it
+      smtpmail-smtp-server "127.0.0.1"
+      smtpmail-smtp-service 1025
+      smtpmail-stream-type 'starttls)
+#+end_src
+
+=nnimap= ist das Gnus-Backend für IMAP. Der Name =proton= ist eine lokale Bezeichnung und erscheint später in Gruppennamen. =nnimap-split-methods nil= passt zur Originalkonfiguration: Die serverseitige Ordnerstruktur übernimmt die Ablage, nicht ein zusätzlicher lokaler Split-Regelsatz.
+
+Der Code verwendet STARTTLS. Das ist keine Empfehlung, Zertifikatsprüfungen auszuschalten. Bei einem Zertifikatsproblem muss die Vertrauenseinrichtung zur verwendeten Bridge passen. Die [[https://proton.me/support/bridge-ssl-connection-issue][Hinweise von Proton zu Bridge-Verbindungsproblemen]] sind dafür der Ausgangspunkt; Warnungen sollte man nicht pauschal umgehen.
+
+* Zugangsdaten gehören nicht in die init.el
+
+Meine aktive Konfiguration verweist auf =~/.authinfo=. Für die öffentliche Nachbauvariante verwende ich die verschlüsselte Alternative =~/.authinfo.gpg=. Voraussetzung ist eine funktionierende GnuPG-/EasyPG-Einrichtung. Emacs kann die Datei beim Öffnen und Speichern entschlüsseln beziehungsweise verschlüsseln. Das muss vor der ersten Mailanmeldung mit einer harmlosen Testdatei geprüft werden.
+
+Die Struktur der Einträge sieht so aus; ersetze die Platzhalter ausschließlich lokal:
+
+#+begin_example
+machine 127.0.0.1 login BRIDGE_BENUTZER port 1143 password BRIDGE_PASSWORT
+machine 127.0.0.1 login BRIDGE_BENUTZER port 1025 password BRIDGE_PASSWORT
+#+end_example
+
+Gemeint sind die von der Bridge angezeigten Zugangsdaten. Die Datei gehört weder ins Website-Repository noch als Beispiel in einen veröffentlichten Beitrag. Für unverschlüsselte Auth-Dateien sind restriktive Dateirechte nötig; Verschlüsselung schützt außerdem nicht vor einem bereits entsperrten oder kompromittierten Benutzerkonto. Die Zuordnung von Host, Nutzer und Port beschreibt das [[https://www.gnu.org/software/emacs/manual/html_mono/auth.html][auth-source-Handbuch]].
+
+* Eine ruhigere Nachrichtenübersicht
+
+#+begin_src emacs-lisp
+(setq gnus-inhibit-startup-message t
+      gnus-permanently-visible-groups ".*"
+      gnus-ignored-from-addresses (regexp-quote user-mail-address)
+      gnus-summary-line-format
+      "%U%R%z %(%&user-date;  %-23,23f  %B%s%)\n"
+      gnus-user-date-format-alist
+      '(((gnus-seconds-today) . "Heute %H:%M")
+        ((+ 86400 (gnus-seconds-today)) . "Gestern %H:%M")
+        (t . "%d.%m.%Y %H:%M"))
+      gnus-summary-thread-gathering-function
+      'gnus-gather-threads-by-references
+      mm-text-html-renderer 'shr
+      shr-use-colors nil)
+#+end_src
+
+Die Formatzeichen erzeugen unter anderem Status, Datum, Absender und Betreff. Threads werden anhand der Nachrichtenreferenzen gesammelt. =shr= rendert HTML innerhalb von Emacs; abgeschaltete Mailfarben sorgen für eine ruhigere Darstellung. Das ist keine vollständige Sicherheitskonfiguration für externe Inhalte oder Anhänge.
+
+Das Original richtet zusätzlich einen Cache, den Ordner für gesendete Nachrichten und eine automatische OpenPGP-Signatur ein. Diese Teile werden hier bewusst nicht blind übernommen: Ein Cache speichert lokale Maildaten, der Sent-Ordner kann je nach Server anders heißen, und Signieren setzt einen passenden privaten Schlüssel voraus. Eine Signatur verschlüsselt den Inhalt außerdem nicht.
+
+* Schrittweise prüfen
+
+Beginne mit =M-x gnus= und prüfe die sichtbaren IMAP-Gruppen. Kontrolliere anschließend eine einzelne Nachricht und die Threadansicht. Richte erst danach den Versand ein und teste bewusst mit einer Nachricht an eine eigene Adresse. Prüfe dabei auch, ob gesendete Nachrichten doppelt abgelegt werden, bevor du einen zusätzlichen Gnus-Archivordner aktivierst.
+
+Bei Verbindungsfehlern zuerst Bridge-Status und Ports prüfen, bei Anmeldefehlern die auth-source-Zuordnung. Der Website-Build testet keinen Mailzugriff und verschickt keine Nachrichten. Die Protokolloptionen sind im [[https://www.gnu.org/software/emacs/manual/html_mono/gnus.html][Gnus-Handbuch]] nachzulesen.

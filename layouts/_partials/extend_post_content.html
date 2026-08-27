@@ -1,0 +1,23 @@
+{{ if eq .Params.project "emacs-konfiguration" }}
+{{ $current := . }}
+{{ $pages := (where site.RegularPages "Params.project" "emacs-konfiguration").ByParam "series_order" }}
+<aside class="series-navigation" aria-label="Artikelserie">
+  <p><a href="{{ "emacs/konfiguration/" | relURL }}">Meine Emacs-Konfiguration · Alle Teile</a></p>
+  <nav class="paginav" aria-label="Lesereihenfolge">
+    {{ range $index, $page := $pages }}
+      {{ if eq $page.RelPermalink $current.RelPermalink }}
+        {{ if gt $index 0 }}
+          {{ with index $pages (sub $index 1) }}
+          <a class="prev" href="{{ .RelPermalink }}"><span class="title">« Vorheriger Teil</span><span>{{ .Title }}</span></a>
+          {{ end }}
+        {{ end }}
+        {{ if lt (add $index 1) (len $pages) }}
+          {{ with index $pages (add $index 1) }}
+          <a class="next" href="{{ .RelPermalink }}"><span class="title">Nächster Teil »</span><span>{{ .Title }}</span></a>
+          {{ end }}
+        {{ end }}
+      {{ end }}
+    {{ end }}
+  </nav>
+</aside>
+{{ end }}

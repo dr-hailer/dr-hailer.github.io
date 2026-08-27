@@ -1,0 +1,90 @@
+#+title: 01 · Das Grundgerüst: Start, Pakete und eigene Befehle
+#+date: 2026-08-27
+#+series_order: 01
+#+draft: false
+#+project: emacs-konfiguration
+#+layout: emacs-article
+#+description: early-init.el, use-package und ein überschaubarer Einstieg in meine Konfiguration.
+
+Meine Konfiguration besteht aus einer kleinen =early-init.el= und einer umfangreichen =init.el=. Die erste Datei beeinflusst den frühen Start, die zweite richtet Pakete, Arbeitsabläufe und eigene Befehle ein. Das ist keine modulare Konfiguration mit vielen =require=-Dateien: Die thematischen Abschnitte liegen überwiegend in einer gemeinsamen Datei.
+
+Dieser Artikel zeigt ein reduziertes Grundgerüst. Voraussetzung für die Serie ist Emacs 29 oder neuer mit dem mitgelieferten =use-package=; meine Ausgangskonfiguration läuft unter Emacs 31.1. Einzelne neuere Funktionen werden in den jeweiligen Artikeln gesondert genannt.
+
+* Den Start und den Alltag unterscheiden
+
+Dieser Auszug gehört in =early-init.el=:
+
+#+begin_src emacs-lisp
+;;; early-init.el -*- lexical-binding: t; -*-
+(setq gc-cons-threshold most-positive-fixnum
+      gc-cons-percentage 0.2
+      inhibit-startup-screen t
+      frame-resize-pixelwise t)
+#+end_src
+
+=gc-cons-threshold= legt eine Schwelle für die Garbage Collection fest. Der sehr große Wert verhindert viele Unterbrechungen während des Ladens, kann aber vorübergehend den Speicherbedarf erhöhen. Er ist kein sinnvoller Dauerwert. Deshalb setzt meine =init.el= ihn nach dem Start wieder herunter:
+
+#+begin_src emacs-lisp
+;;; init.el -*- lexical-binding: t; -*-
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (setq gc-cons-threshold (* 64 1024 1024)
+                  gc-cons-percentage 0.1)))
+(setq read-process-output-max (* 4 1024 1024)
+      load-prefer-newer t)
+#+end_src
+
+Die 64 MiB sind eine persönliche Ausgangseinstellung, kein universelles Optimum. =read-process-output-max= betrifft Daten von Unterprozessen wie Sprachservern. =load-prefer-newer= verhindert, dass eine neuere Quelldatei hinter einem älteren Bytecode-Stand zurücksteht. Ob solche Einstellungen den eigenen Start messbar verbessern, sollte man mit =emacs-init-time= und einem Vergleich prüfen.
+
+* Pakete nachvollziehbar laden
+
+Meine Paketquellen sind GNU ELPA, NonGNU ELPA und MELPA, mit Vorrang für die beiden ELPA-Archive. Für den Nachbau genügt:
+
+#+begin_src emacs-lisp
+(require 'package)
+(setq package-archives
+      '(("gnu" . "https://elpa.gnu.org/packages/")
+        ("nongnu" . "https://elpa.nongnu.org/nongnu/")
+        ("melpa" . "https://melpa.org/packages/"))
+      package-archive-priorities
+      '(("gnu" . 20) ("nongnu" . 15) ("melpa" . 10)))
+(package-initialize)
+(require 'use-package)
+(require 'cl-lib)
+
+;; Externe Pakete markieren wir in dieser Serie einzeln mit :ensure t.
+(setq use-package-always-ensure nil)
+
+(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
+(when (file-exists-p custom-file)
+  (load custom-file nil 'nomessage))
+#+end_src
+
+In meiner vollständigen Konfiguration ist =use-package-always-ensure= eingeschaltet. Die Nachbauvariante macht Paketinstallationen dagegen an jedem Block sichtbar. =:ensure t= kann ein fehlendes Paket herunterladen; es installiert keine Programme wie Python, Ruff oder direnv. Vor der ersten Installation ist gegebenenfalls =M-x package-refresh-contents= nötig. Die Schlüsselwörter erklärt das [[https://www.gnu.org/software/emacs/manual/html_node/use-package/][use-package-Handbuch]].
+
+*:init* läuft vor dem Laden eines Pakets, *:config* danach. Für eingebaute Bibliotheken wie =org= und =python= verwenden wir =:ensure nil=. Die eigene =custom.el= hält von Customize erzeugte Werte getrennt; sie kann trotzdem Einstellungen überschreiben, wenn man denselben Wert an mehreren Stellen pflegt.
+
+* Eigene Befehle erkennbar machen
+
+Meine Funktionen verwenden überwiegend das Präfix =michi/=. Das senkt das Risiko, einen Paketbefehl zu überschreiben. Ein kleines Beispiel aus der Konfiguration ist der angepasste Abbruchbefehl:
+
+#+begin_src emacs-lisp
+(defun michi/keyboard-quit ()
+  "Brich die aktive Minibuffer-Aktion oder den aktuellen Befehl ab."
+  (interactive)
+  (if (active-minibuffer-window)
+      (if (minibufferp)
+          (minibuffer-keyboard-quit)
+        (abort-recursive-edit))
+    (keyboard-quit)))
+
+(global-set-key [remap keyboard-quit] #'michi/keyboard-quit)
+#+end_src
+
+=interactive= macht die Funktion über =M-x= aufrufbar. Die Umleitung ersetzt den Befehl =keyboard-quit= an seinen bestehenden Belegungen, statt nur eine einzelne Taste neu zu binden. Im Minibuffer wird die laufende Eingabe abgebrochen; außerhalb bleibt das normale Abbruchverhalten erhalten.
+
+* Ausprobieren und eingrenzen
+
+Starte eine Testinstanz, lade zunächst nur das Grundgerüst und öffne mit =C-x C-f= eine Dateiabfrage. =C-g= sollte sie beenden. Prüfe mit =C-h v gc-cons-threshold= den Alltagswert nach einem vollständigen Neustart. Beim nachträglichen Laden ist der Startup-Hook bereits gelaufen: Dann muss man die Rücksetzung separat auswerten oder neu starten.
+
+Bei Fehlern helfen =emacs --debug-init= und =*Messages*=. Lade nicht sofort die gesamte Serie, wenn bereits der erste Block scheitert. Die originale Konfiguration unterdrückt einige Compilerwarnungen; für den Nachbau lassen wir diese sichtbar, damit fehlende Abhängigkeiten auffallen.

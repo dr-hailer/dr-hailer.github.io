@@ -1,0 +1,77 @@
+#+title: 05 · Ruff: formatieren, ohne den Buffer bei Fehlern zu beschädigen
+#+date: 2026-08-27
+#+series_order: 05
+#+draft: false
+#+project: emacs-konfiguration
+#+layout: emacs-article
+#+description: Den Python-Buffer an Ruff übergeben, den Rückgabecode prüfen und Änderungen gezielt übernehmen.
+
+Meine Funktion =michi/python-ts-ruff-format-buffer-if-needed= formatiert Python beim Speichern. Sie schickt den aktuellen Buffer an =ruff format=, sammelt dessen Ausgabe getrennt und ersetzt den Inhalt nur bei Erfolg. Das ist ein wichtiger Unterschied zu einer Pipeline, die zuerst den Originaltext löscht und erst danach feststellt, dass der Formatierer gescheitert ist.
+
+Voraussetzung sind die Python-Einrichtung aus Teil 4 und ein erreichbares =ruff=-Programm. Ruff wird nicht durch =use-package= installiert. Die folgende Funktion ist eine kürzere, ausdrücklich angepasste Nachbauvariante. Sie unterstützt beide Python-Modi, verweigert Remote-Dateien und bricht bei einem Formatierungsfehler das Speichern mit einer Fehlermeldung ab. Das Original zeigt den Fehler an und lässt den Speichervorgang weiterlaufen.
+
+* Ausgabe zuerst in einen zweiten Buffer schreiben
+
+#+begin_src emacs-lisp
+(defun michi/python-ruff-format ()
+  "Formatiere einen lokalen Python-Buffer mit Ruff."
+  (interactive)
+  (unless (derived-mode-p 'python-mode 'python-ts-mode)
+    (user-error "Dieser Befehl ist für Python-Buffer gedacht"))
+  (unless (and buffer-file-name
+               (not (file-remote-p buffer-file-name)))
+    (user-error "Bitte eine lokale Python-Datei öffnen"))
+  (let ((ruff (or (executable-find "ruff")
+                  (user-error "Ruff fehlt in der aktiven Umgebung")))
+        (output (generate-new-buffer " *ruff-output*"))
+        (errors (make-temp-file "ruff-errors-"))
+        (filename buffer-file-name))
+    (unwind-protect
+        (save-restriction
+          (widen)
+          (let ((status
+                 (call-process-region
+                  (point-min) (point-max) ruff nil
+                  (list output errors) nil
+                  "format" "--quiet" "--stdin-filename" filename "-")))
+            (unless (eq status 0)
+              (with-current-buffer (get-buffer-create "*Ruff errors*")
+                (erase-buffer)
+                (insert-file-contents errors)
+                (display-buffer (current-buffer)))
+              (user-error "Ruff fehlgeschlagen; Originaltext bleibt erhalten"))
+            (unless (= 0 (compare-buffer-substrings
+                          (current-buffer) (point-min) (point-max)
+                          output nil nil))
+              (atomic-change-group
+                (replace-buffer-contents output)))))
+      (when (buffer-live-p output) (kill-buffer output))
+      (when (file-exists-p errors) (delete-file errors)))))
+#+end_src
+
+=call-process-region= übergibt die Region direkt an einen Prozess. Es wird keine Shell-Befehlszeile aus dem Dateinamen zusammengesetzt. Dadurch sind Leerzeichen in Dateinamen kein Anlass für eigene Shell-Escapes. =--stdin-filename= gibt Ruff trotz Standardeingabe den Dateikontext für die Konfigurationssuche; =-= bezeichnet die Eingabe über stdin. Die Schnittstelle dokumentiert die [[https://docs.astral.sh/ruff/formatter/][Ruff-Dokumentation]].
+
+=widen= sorgt dafür, dass nicht nur ein eingeengter Ausschnitt formatiert wird. =unwind-protect= räumt den temporären Buffer und die temporäre Fehlerdatei auch bei einem Fehler auf. Die sichtbare Fehlerausgabe bleibt dagegen im Buffer =*Ruff errors*= erhalten.
+
+* Änderungen bewusst übernehmen
+
+Der Rückgabecode muss exakt 0 sein. Erst danach vergleicht die Funktion die Ausgabe mit dem Original. Unveränderter Text wird nicht unnötig ersetzt. =replace-buffer-contents= versucht vorhandene Positionen sinnvoll zu erhalten; =atomic-change-group= fasst die Änderung zusammen. Das Original sichert zusätzlich die Fensterposition und verwendet =replace-region-contents=.
+
+Der Aufruf ist synchron. Bei sehr großen Dateien kann der Speichervorgang daher merklich warten. Das ist für kleine und mittlere Quelldateien einfacher nachvollziehbar als eine asynchrone Lösung, die Änderungen zwischen Prozessstart und Prozessende koordinieren müsste.
+
+* Erst manuell, dann beim Speichern
+
+Teste zunächst =M-x michi/python-ruff-format= in einer wegwerfbaren Python-Datei mit dem unformatierten Ausdruck =x =  1=. Erwartet wird =x = 1=. Prüfe anschließend einen Syntaxfehler: Die Fehlermeldung soll erscheinen, der Ausgangstext aber erhalten bleiben. Erst nach diesem Test den Hook aktivieren:
+
+#+begin_src emacs-lisp
+(defun michi/python-enable-ruff-format-on-save ()
+  "Aktiviere den Formatierer nur im aktuellen Buffer."
+  (add-hook 'before-save-hook #'michi/python-ruff-format nil t))
+
+(add-hook 'python-mode-hook #'michi/python-enable-ruff-format-on-save)
+(add-hook 'python-ts-mode-hook #'michi/python-enable-ruff-format-on-save)
+#+end_src
+
+Das letzte =t= bei =add-hook= macht den Speicherhook bufferlokal. Ohne diese Begrenzung könnte ein Python-Hook das Speichern anderer Dateitypen beeinflussen. Zurücknehmen lässt er sich im aktuellen Buffer mit =(remove-hook 'before-save-hook #'michi/python-ruff-format t)=.
+
+Die Originalkonfiguration aktiviert Ruff nur für =python-ts-mode=. Der Nachbau erweitert dies bewusst auf den klassischen Modus. Formatierung ist außerdem nicht gleich Linting: =ruff format= ersetzt weder Typprüfung durch Pyright noch einen eigenen =ruff check=-Durchlauf.

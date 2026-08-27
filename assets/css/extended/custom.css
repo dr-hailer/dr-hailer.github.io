@@ -61,6 +61,44 @@ summary:focus-visible {
     font-size: 16px;
 }
 
+.series-navigation {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-size: 16px;
+}
+
+.series-navigation > p a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+.series-label {
+    margin-bottom: 16px;
+    color: var(--secondary);
+    font-size: 14px;
+}
+
+.series-label a:hover {
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+.highlight:focus-within .copy-code {
+    display: block;
+}
+
+.emacs-article .highlight pre {
+    padding-top: 40px;
+}
+
+@media (hover: none) {
+    .copy-code {
+        display: block;
+    }
+}
+
 @media (max-width: 600px) {
     .main {
         padding-top: 24px;

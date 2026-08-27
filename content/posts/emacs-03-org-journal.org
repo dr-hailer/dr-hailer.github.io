@@ -1,0 +1,70 @@
+#+title: 03 · Ein Journal mit eigener Capture-Zielfunktion
+#+date: 2026-08-27
+#+series_order: 03
+#+draft: false
+#+project: emacs-konfiguration
+#+layout: emacs-article
+#+description: Wie meine Journal-Funktion Jahr, Monat und Tag findet und Capture an die richtige Stelle führt.
+
+In meiner Konfiguration ist das Journal keine eigene Anwendung. Es ist eine Datei namens =journal.org= und eine Funktion, die darin den heutigen Tag findet. Die Struktur lautet: Jahr auf Ebene 1, Monat auf Ebene 2 und vollständiges Datum auf Ebene 3. Capture hängt den Text unter diesem Datum an.
+
+Voraussetzung ist die Org-Einrichtung aus Teil 2. Der folgende Code ist eine kompaktere Nachbauvariante von =michi/org-journal-find-location= mit derselben Struktur. Er ersetzt die drei nahezu gleichen Suchabschnitte der Originalfunktion durch eine Schleife. Die aktive Konfiguration wird dadurch nicht verändert.
+
+* Die Zielposition berechnen
+
+#+begin_src emacs-lisp
+(defun michi/org-journal-find-location ()
+  "Finde den heutigen Journalabschnitt und liefere die Einfügeposition."
+  (let ((file (expand-file-name "journal.org" org-directory)))
+    (find-file file)
+    (widen)
+    (goto-char (point-min))
+    (save-restriction
+      (let ((level 0))
+        (dolist (heading (list (format-time-string "%Y")
+                              (format-time-string "%m")
+                              (format-time-string "%Y-%m-%d")))
+          (setq level (1+ level))
+          (goto-char (point-min))
+          (unless (re-search-forward
+                   (concat "^" (regexp-quote (make-string level ?*))
+                           " " (regexp-quote heading) "$") nil t)
+            (goto-char (point-max))
+            (unless (bolp) (insert "\n"))
+            (insert (make-string level ?*) " " heading "\n")
+            (forward-line -1))
+          (beginning-of-line)
+          (org-narrow-to-subtree)))
+      (goto-char (point-max))
+      (unless (bolp) (insert "\n")))
+    (point)))
+#+end_src
+
+=find-file= öffnet das Journal; der Aufruf speichert es nicht eigenständig. =widen= hebt eine vorherige Einschränkung auf. Die Suche beginnt dann am Dateianfang. =regexp-quote= sorgt dafür, dass insbesondere die Org-Sterne als normale Zeichen und nicht als Regex-Operatoren behandelt werden.
+
+Entscheidend ist =org-narrow-to-subtree=: Nach dem gefundenen Jahr ist nur dieses Jahr sichtbar, nach dem Monat nur dieser Monat. Ein „08“ in einem anderen Jahr kann so nicht versehentlich als aktueller Monat dienen. Die eingeschränkte Sicht bleibt innerhalb von =save-restriction= bestehen und wird beim Verlassen wieder aufgehoben.
+
+Die Funktion erzeugt fehlende Überschriften am Ende des jeweiligen Bereichs. Sie sortiert kein vorhandenes Journal um. Wer ältere Einträge nachträgt oder abweichende Überschriften verwendet, muss das berücksichtigen. Eine zweite Ausführung am selben Tag soll keine zweite Tagesüberschrift erzeugen.
+
+* In Capture einhängen
+
+#+begin_src emacs-lisp
+(add-to-list 'org-capture-templates
+             '("j" "Journal" plain
+               (function michi/org-journal-find-location)
+               "%?"))
+#+end_src
+
+Der Capture-Typ =plain= ist bewusst gewählt. Das Datum steht schon als Überschrift in der Datei, deshalb soll Capture nur den eingegebenen Text ergänzen. Bei mehreren Tagesnotizen lassen sich im Text Absätze oder Uhrzeiten verwenden. Die Vorlage selbst schreibt keine zusätzliche Uhrzeit vor.
+
+Die Zielfunktion braucht kein =interactive=: Org ruft sie als Funktion auf. Sie muss den richtigen Buffer auswählen und den Cursor an der Einfügestelle hinterlassen. Der Rückgabewert allein würde nicht genügen, wenn weiterhin ein anderer Buffer aktiv wäre.
+
+* Ein kleiner Test mit klarer Erwartung
+
+Rufe =C-c c j= auf und schreibe eine kurze Notiz. Bestätige mit =C-c C-c=. Wiederhole das mit einem zweiten Text. Im Journal sollte ein Jahr, darunter ein Monat und darunter genau eine Überschrift für heute stehen. Beide Texte gehören unter dieselbe Tagesüberschrift.
+
+Prüfe außerdem eine Datei ohne abschließenden Zeilenumbruch. Die =bolp=-Abfragen verhindern, dass neue Überschriften direkt an einen vorhandenen Absatz angeklebt werden. Die Zuordnung erfolgt nach der lokalen Uhrzeit des Systems; ein Eintrag kurz vor Mitternacht kann deshalb unter einem anderen Tag landen als auf einem Rechner in einer anderen Zeitzone.
+
+* Wann die eingebaute Lösung genügt
+
+Org bietet auch Capture-Ziele mit eingebautem Datumsbaum. Eine eigene Funktion lohnt sich hier vor allem für die fest vorgegebene Struktur und als Beispiel für Suche, Einschränkung und Dateibearbeitung in Elisp. Wer keine besondere Hierarchie benötigt, kann den Wartungsaufwand mit einem Standardziel reduzieren. Die möglichen Ziele beschreibt das [[https://orgmode.org/manual/Template-elements.html][Org-Handbuch zu Capture-Vorlagen]].

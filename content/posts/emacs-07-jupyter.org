@@ -1,0 +1,94 @@
+#+title: 07 · Jupyter: Kernel, Org-Sessions und Python-Zellen
+#+date: 2026-08-27
+#+series_order: 07
+#+draft: false
+#+project: emacs-konfiguration
+#+layout: emacs-article
+#+description: Einen Jupyter-Kernel aus Emacs ansprechen und Code zwischen Org und Python-Dateien organisieren.
+
+Meine Konfiguration verwendet =emacs-jupyter= sowohl für Org-Babel als auch für interaktive Arbeit in Python-Dateien. Der Kernel läuft als eigener Prozess und hält Variablen zwischen Ausführungen bereit. Der Emacs-Buffer ist nur die Oberfläche. Ein Neustart des Kernels löscht dessen Zustand, nicht aber bereits gespeicherte Ergebnisblöcke im Dokument.
+
+Voraussetzungen sind Teil 6, das Emacs-Paket =jupyter= und eine Python-Umgebung mit =jupyter= sowie =ipykernel=. Für die von meinem Setup verwendete ZMQ-Anbindung benötigt Emacs Modulunterstützung; die Installation kann zusätzliche Build-Abhängigkeiten verlangen. Maßgeblich ist die [[https://github.com/emacs-jupyter/jupyter][Installationsanleitung des Pakets]].
+
+* Kernelname und Programmpfad unterscheiden
+
+Meine Originalkonfiguration enthält einen absoluten Conda-Pfad und einen projektspezifischen Kernelnamen. Für den Nachbau wird beides neutralisiert: =jupyter= kommt aus dem aktiven Suchpfad, der Kernel heißt im Beispiel =python3=. Prüfe zuerst im Terminal derselben Umgebung:
+
+#+begin_src shell
+jupyter kernelspec list
+#+end_src
+
+Der Name links in der Ausgabe muss zu =:kernel= passen. Ein sichtbarer Kernel garantiert noch nicht, dass alle benötigten Python-Bibliotheken in genau seiner Umgebung installiert sind. Prüfe innerhalb des Kernels später =sys.executable=.
+
+#+begin_src emacs-lisp
+(use-package jupyter
+  :ensure t
+  :commands (jupyter-run-repl jupyter-repl-pop-to-buffer))
+
+(defvar michi/jupyter-kernel "python3"
+  "Kernelname aus der Ausgabe von jupyter kernelspec list.")
+
+(with-eval-after-load 'org
+  (require 'ob-jupyter)
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   (cons '(jupyter . t)
+         (assq-delete-all 'jupyter org-babel-load-languages))))
+
+(defun michi/jupyter-start-repl ()
+  "Starte eine Jupyter-REPL mit dem gewählten Kernel."
+  (interactive)
+  (require 'jupyter)
+  (jupyter-run-repl michi/jupyter-kernel))
+#+end_src
+
+Das Beispiel ergänzt die vorhandenen Babel-Sprachen statt sie zu ersetzen. Die ursprüngliche Hilfsfunktion versucht zuerst, eine vorhandene REPL zu zeigen. Der Nachbau startet bewusst über einen einfachen Einstieg; laufende REPLs lassen sich mit =M-x jupyter-repl-pop-to-buffer= aufrufen.
+
+* Eine explizite Org-Session
+
+#+begin_example
+#+begin_src jupyter-python :session lernprojekt :kernel python3 :results output :exports both
+import sys
+print(sys.executable)
+zahl = 21
+print(zahl * 2)
+#+end_src
+#+end_example
+
+Der erwartete Zahlenwert ist =42=. Ein zweiter Block mit derselben Session kann =zahl= weiterverwenden. Sessions unterschiedlicher Namen sollen verschiedene Arbeitskontexte kennzeichnen. In meiner Konfiguration gibt es dafür globale Standardheader; in diesem Artikel stehen sie sichtbar am Block, damit keine versteckte Vorgabe nötig ist.
+
+Ein sinnvoller Test ist: Kernel neu starten, danach die Blöcke von oben nach unten ausführen. Ein =NameError= zeigt häufig, dass zuvor ein späterer Block oder ein manueller REPL-Befehl eine notwendige Variable gesetzt hatte. Gespeicherte Ausgaben sind kein Beleg für eine erfolgreiche Ausführung in einem frischen Kernel.
+
+* Zellen in einer Python-Datei
+
+Meine Konfiguration verwendet Zeilen mit =# %%= als Zellgrenzen. Die Originalfunktion sucht diese Grenzen mit regulären Ausdrücken. Die folgende Nachbauvariante behandelt zusätzlich den Cursor direkt auf einer Markierungszeile eindeutig und nimmt den Zellmarker nicht in den Codebereich auf:
+
+#+begin_src emacs-lisp
+(defun michi/python-cell-bounds ()
+  "Liefere Anfang und Ende der aktuellen durch # %% begrenzten Zelle."
+  (save-excursion
+    (beginning-of-line)
+    (let* ((marker "^# %%")
+           (start
+            (cond
+             ((looking-at-p marker) (forward-line 1) (point))
+             ((re-search-backward marker nil t)
+              (forward-line 1) (point))
+             (t (point-min)))))
+      (goto-char start)
+      (cons start
+            (if (re-search-forward marker nil t)
+                (line-beginning-position)
+              (point-max))))))
+
+(defun michi/python-run-cell ()
+  "Sende die aktuelle Zelle an den zugeordneten Jupyter-Client."
+  (interactive)
+  (require 'jupyter)
+  (let ((bounds (michi/python-cell-bounds)))
+    (jupyter-eval-region nil (car bounds) (cdr bounds))))
+#+end_src
+
+Für das Senden aus einer Python-Datei muss der Buffer zuvor mit einem Jupyter-Client verbunden sein, beispielsweise über =M-x jupyter-repl-associate-buffer=. Ein Marker allein startet keinen Kernel. Teste die Grenzen zuerst mit =M-: (michi/python-cell-bounds)= in einer Datei mit zwei Zellen, auch direkt auf einer Markerzeile und in der letzten Zelle ohne weiteren Marker.
+
+Die Originalkonfiguration ergänzt Zellnavigation, Einfügen und Hervorhebung sowie Befehle zum Inspizieren und Neustarten. Das Grundprinzip bleibt: Dateistruktur, Zuordnung zum Client und Kernelzustand sind drei getrennte Dinge. Prüfe sie in dieser Reihenfolge, wenn ein Block im falschen Kontext ausgeführt wird.

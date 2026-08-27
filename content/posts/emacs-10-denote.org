@@ -1,0 +1,78 @@
+#+title: 10 · Denote: Org-Notizen mit stabilen Dateinamen
+#+date: 2026-08-27
+#+series_order: 10
+#+draft: false
+#+project: emacs-konfiguration
+#+layout: emacs-article
+#+description: Denote für einzelne Wissensnotizen einrichten und mit Org sowie Consult verbinden.
+
+Neben Inbox und Journal verwende ich Denote für einzelne Notizen. Die Konfiguration legt den Dateityp auf Org fest und fragt beim Anlegen nach Titel und Schlagwörtern. So bleiben auch diese Inhalte gewöhnliche Textdateien. Denote liefert eine konsistente Benennung und Befehle zum Erstellen, Verknüpfen und Auffinden.
+
+Voraussetzungen sind Teil 1 und die Org-Einrichtung aus Teil 2. Für die optionale Suche mit Consult brauchst du außerdem Teil 9. Meine Ausgangskonfiguration verwendet Denote 4.2.3; Paketversionen können andere Befehle oder Voreinstellungen anbieten.
+
+* Ein gemeinsames Notizverzeichnis
+
+#+begin_src emacs-lisp
+(defvar michi/denote-dir
+  (expand-file-name "notes/" org-directory)
+  "Verzeichnis für einzelne Org-Notizen.")
+
+(use-package denote
+  :ensure t
+  :demand t
+  :init
+  (make-directory michi/denote-dir t)
+  :custom
+  (denote-directory michi/denote-dir)
+  (denote-file-type 'org)
+  (denote-sort-keywords t)
+  (denote-prompts '(title keywords))
+  :config
+  (denote-rename-buffer-mode 1))
+#+end_src
+
+Der Originalpfad liegt ebenfalls unter dem Org-Verzeichnis, dort allerdings innerhalb des persönlichen Synchronisationsordners. Hier wird er aus =org-directory= abgeleitet. =:demand t= lädt das Paket sofort. Das ist bei diesem kleinen Beispiel unkompliziert, aber nicht bei jedem Paket nötig.
+
+=denote-file-type= sorgt für Org-Dateien. Sortierte Schlagwörter machen die Benennung konsistenter. Das Umbenennen des Buffers ändert seine Anzeige in Emacs; es ist nicht mit einer beliebigen manuellen Umbenennung der Datei im Dateimanager gleichzusetzen.
+
+* Was in den Dateinamen gehört
+
+Denote kombiniert einen Zeitbezeichner mit lesbaren Bestandteilen wie Titel und Schlagwörtern. Ein rein beispielhafter Name ist:
+
+#+begin_example
+20260827T140000--org-babel-verstehen__emacs_org.org
+#+end_example
+
+Die Notiz bleibt auch außerhalb von Emacs auffindbar. Das bedeutet aber nicht, dass man den Zeitbezeichner gefahrlos ändern sollte: Verknüpfungen können davon abhängen. Für Umbenennungen und Titeländerungen sind die Denote-Befehle der bessere Ausgangspunkt. Der Aufbau ist im [[https://protesilaos.com/emacs/denote][Denote-Handbuch]] beschrieben.
+
+* Die erste Notiz und der erste Link
+
+Rufe =M-x denote= auf, gib einen Titel und Schlagwörter ein und speichere die neue Notiz. Erstelle danach eine zweite Notiz. Mit =M-x denote-link= lässt sich aus einer Notiz auf die andere verweisen. Öffne den Link und kontrolliere, ob das richtige Dokument erscheint.
+
+Die Übungen zeigen zwei getrennte Eigenschaften: Ein sprechender Titel hilft beim Finden; der Link stellt eine explizite Beziehung zwischen Notizen her. Schlagwörter sind keine automatische Ordnerstruktur und ersetzen keine inhaltliche Erklärung im Text.
+
+* Org und Consult ergänzen
+
+Meine Konfiguration verwendet zusätzlich =denote-org= und =consult-denote=. Die erste Erweiterung bietet unter anderem Org-spezifische Befehle für Überschriften, die zweite verbindet Denote mit der Consult-Oberfläche:
+
+#+begin_src emacs-lisp
+(use-package denote-org
+  :ensure t
+  :after denote
+  :commands (denote-org-extract-org-subtree
+             denote-org-link-to-heading))
+
+(use-package consult-denote
+  :ensure t
+  :after (denote consult)
+  :config
+  (consult-denote-mode 1))
+#+end_src
+
+Das Extrahieren eines Teilbaums kann eine bestehende Datei verändern. Probiere den Befehl zuerst an einer Kopie aus. Für reine Suche ist ein solcher Umbau nicht nötig. Die vollständige Konfiguration ergänzt noch Denote Sequence, Menu und Explore; diese Erweiterungen sind für die ersten verknüpften Notizen optional.
+
+* Verhältnis zur Agenda und zur Website
+
+Die im Org-Artikel eingerichtete Agenda enthält zunächst nur die Inbox. Denote-Notizen unter =notes/= tauchen dort nicht automatisch auf. Das ist sinnvoll, solange sie Wissen und keine zu terminierenden Aufgaben enthalten. Wenn einzelne Notizen Aufgaben tragen sollen, müssen sie bewusst in =org-agenda-files= aufgenommen werden.
+
+Denote-Dateien sind außerdem nicht automatisch Hugo-Beiträge. Ein veröffentlichtes Dokument braucht die Metadaten und den Ablageort der Website. Private Wissensnotizen bleiben außerhalb von =content/=. Diese Trennung verhindert, dass eine nützliche persönliche Notizsammlung versehentlich als Ganzes veröffentlicht wird.
